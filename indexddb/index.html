@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link crossorigin href="https://lib.baomitu.com/antd/4.1.2/antd.min.css" rel="stylesheet">
+</head>
+<body>
+  <div id="app"></div>
+</body>
+<script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js" ></script>
+<script src="https://unpkg.com/babel-standalone@6.26.0/babel.js"></script>
+<script crossorigin src="https://lib.baomitu.com/antd/4.1.2/antd.min.js"></script>
+<script type='text/babel'>
+  class TableOperate extends React.Component {
+    constructor (props) {
+      super(props);
+      this.state = {
+        db: '',
+        username: '',
+        tel: '',
+        idcard: '',
+        adress: '',
+        formList: [
+          {
+            label: '姓名',
+            name: 'username',
+          },
+          {
+            label: '手机号',
+            name: 'tel',
+          },
+          {
+            label: '身份证号',
+            name: 'idcard',
+          },
+          {
+            label: '住址',
+            name: 'adress',
+          }
+        ],
+        dataSource: [],
+        columns: [
+          {
+            title: '姓名',
+            dataIndex: 'username',
+            key: 'username',
+          },
+          {
+            title: '手机号',
+            dataIndex: 'tel',
+            key: 'tel',
+          },
+          {
+            title: '身份证号',
+            dataIndex: 'idcard',
+            key: 'idcard',
+          },
+          {
+            title: '住址',
+            dataIndex: 'adress',
+            key: 'adress',
+          },
+        ]
+      }
+    }
+    componentDidMount () {
+      this.setDBMsg();
+    }
+    setDBMsg () {
+      var db;
+      let request = window.indexedDB.open('msgList', 1);
+      request.onupgradeneeded = function (event) {
+        db = event.target.result;
+        this.setState(db);
+        var objectStore = db.createObjectStore('msg', {autoIncrement: true});
+        objectStore.createIndex('username', 'username', { unique: false });
+        objectStore.createIndex('tel', 'tel', { unique: false });
+        objectStore.createIndex('idcard', 'idcard', { unique: false });
+        objectStore.createIndex('adress', 'adress', { unique: false });
+      }
+    }
+    setFromValue (v, n) {
+      let o = {};
+      o[n] = v.target.value;
+      this.setState(o);
+    }
+    submitFrom = () => {
+      let {username, tel, idcard, adress, dataSource} = this.state;
+      let o = {username, tel, idcard, adress};
+      dataSource.push(o);
+      this.setState({dataSource: [...dataSource]});
+    }
+    render() {
+      return (
+        <div>
+          <div style={{display: 'flex', width: '800px', justifyContent: 'space-between', position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)'}}>
+            <div>
+              <antd.Form
+              name="basic"
+              > 
+              {this.state.formList.map(item => {
+                return (
+                  <antd.Form.Item
+                    label={item.label}
+                    name={item.name}
+                  >
+                    <antd.Input value={this.state[item.name]} onChange={_ => {this.setFromValue(_, item.name)}}/>
+                  </antd.Form.Item>
+                )
+              })}
+                <antd.Form.Item>
+                  <antd.Button type="primary" htmlType="submit" onClick={this.submitFrom}>
+                    确定添加
+                  </antd.Button>
+                </antd.Form.Item>
+              </antd.Form>
+            </div>
+            <antd.Table dataSource={this.state.dataSource} columns={this.state.columns} />  
+          </div>
+        </div>
+      );
+    }
+  }
+  ReactDOM.render(
+    <TableOperate />,
+    document.querySelector('#app')
+  )
+</script>
+</html>
