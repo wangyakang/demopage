@@ -19,10 +19,34 @@
       super(props);
       this.state = {
         db: '',
+        // edit
         username: '',
         tel: '',
         idcard: '',
         adress: '',
+        // search
+        s_suername: '',
+        s_tel: '',
+        s_idcard: '',
+        s_adress: '',
+        searchList: [
+          {
+            label: '姓名',
+            name: 's_username',
+          },
+          {
+            label: '手机号',
+            name: 's_tel',
+          },
+          {
+            label: '身份证号',
+            name: 's_idcard',
+          },
+          {
+            label: '住址',
+            name: 's_adress',
+          }
+        ],
         formList: [
           {
             label: '姓名',
@@ -69,7 +93,7 @@
             render: (_, record) => {
               return (
                 <div>
-                  <antd.Button type="primary" size="small" style={{marginBottom: '10px'}} onClick={_ => this.setState({operatetype: 'edit', username: record.username, tel: record.tel, adress: record.adress, idcard: record.idcard, isShowOperate: true})}>编辑</antd.Button>
+                  <antd.Button type="primary" size="small" style={{marginBottom: '10px'}} onClick={_ => this.openOperateModel('edit', record)}>编辑</antd.Button>
                   <antd.Button size="small" onClick={_ => this.setState({cancelkey: record.idcard, iscancel: true})}>删除</antd.Button>
                 </div>
               )
@@ -85,9 +109,15 @@
     componentDidMount () {
       this.setDBMsg();
     }
+    getSearch = () => {
+      const {s_adress, s_idcard, s_suername, s_tel} = this.state;
+      this.dbOperate('get', {username: 'wangyakang'}).then(res => {
+        console.log(res, 88)
+      })
+    }
     cancelsub = _ => {
       this.dbOperate('delete', this.state.cancelkey).then(_ => {
-        // message('删除用户成功～');
+        antd.message.success('删除用户成功～');
         this.getalldata();
         this.setState({iscancel: false, cancelkey: ''});
       })
@@ -101,7 +131,7 @@
           var objectStore = db.createObjectStore('person', {keyPath: 'idcard'});
           objectStore.createIndex('username', 'username', { unique: false });
           objectStore.createIndex('tel', 'tel', { unique: false });
-          objectStore.createIndex('idcard', 'idcard', { unique: false });
+          objectStore.createIndex('idcard', 'idcard', { unique: true });
           objectStore.createIndex('adress', 'adress', { unique: false });
         }
       }
@@ -125,9 +155,20 @@
       return this.state.db.transaction('person', mode).objectStore('person');
     }
     dbOperate (type, data) {
-      console.log(data, 77);
       return new Promise(resolve => {
-        let request = this.getDBevent(type)[type](data);
+        let request;
+        if (type == 'get' && typeof(data) == 'object') {
+          let indexArr = [], valueList = [];
+          for (const key in data) {
+            indexArr.push(key);
+            valueList.push(data[key]);
+          }
+          console.log(indexArr, valueList, 222);
+          request = this.getDBevent(type).index(indexArr).get(valueList);
+        } else {
+          console.log(type, data, request);
+          request = this.getDBevent(type)[type](data);
+        }
         request.onsuccess = _ => {
           resolve(request.result);
         }
@@ -138,12 +179,30 @@
       o[n] = v.target.value;
       this.setState(o);
     }
+    openOperateModel (type, record) {
+      let isEdit = type === 'edit';
+      let o = {
+        operatetype: type,
+        isShowOperate: true,
+        username: isEdit ? record.username : '',
+        tel: isEdit ? record.tel : '',
+        idcard: isEdit ? record.idcard : '',
+        adress: isEdit ? record.adress : '',
+      }
+      this.setState({...o});
+
+    }
     submitFrom = () => {
       let {username, tel, idcard, adress, dataSource, operatetype} = this.state;
       let o = {username, tel, idcard, adress};
       let result;
-      console.log(o, 99);
       if (operatetype == 'add') {
+        this.dbOperate('get', idcard).then(res => {
+          console.log(res, 33);
+          if (res) {
+            antd.message.error('已经存在该用户');
+          }
+        })
         result = this.dbOperate('add', o);
       } else if (operatetype == 'edit') {
         result = this.dbOperate('put', o);
@@ -153,11 +212,34 @@
         this.setState({username: '', tel: '', idcard: '', adress: '', isShowOperate: false});
       })
     }
+    getformlist (type) {
+      const isOperate = type == 'operate';
+      const data  = isOperate ? this.state.formList: this.state.searchList;
+      return (
+        <antd.Form style={{display: isOperate ? 'block' : 'flex' }}>
+          {data.length &&data.map(item => (
+                    <antd.Form.Item
+                      rules={[{ required: isOperate, message: '请输入' }]}
+                      label={item.label}
+                      name={item.name}
+                      key={item.name}
+                    >
+                    {isOperate && item.name}
+                      <antd.Input value={this.state[item.name]} onChange={_ => {this.setFromValue(_, item.name)}} disabled={isOperate && item.label == 'idcard'}/>
+                    </antd.Form.Item>
+                ))}  
+        </antd.Form>
+      )
+    }
     render() {
       return (
         <div>
           <div style={{width: '800px', position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)'}}>
-            <antd.Button size="small" onClick={_ => this.setState({operatetype: 'add', isShowOperate: true})}>添加</antd.Button>
+            <div>
+              {this.getformlist('search')}
+             </div>
+            <antd.Button type="primary" onClick={_ => this.getSearch()}>查询</antd.Button>
+            <antd.Button style={{marginLeft: '20px'}} onClick={_ => this.openOperateModel('add')}>添加</antd.Button>
             <antd.Table dataSource={this.state.dataSource} columns={this.state.columns} />   
           </div>
           <antd.Modal
@@ -171,27 +253,13 @@
           <antd.Modal
             title={this.state.operatetype == 'edit' ? '编辑' : '添加'}
             visible={this.state.isShowOperate}
-            footer={null}
+            onOk = {_ => this.submitFrom()}
+            onCancel = {_ => this.setState({isShowOperate: false})}
           >
           <antd.Form
               name="basic"
               > 
-                {this.state.formList.length &&this.state.formList.map(item => (
-                    <antd.Form.Item
-                      label={item.label}
-                      name={item.name}
-                    >
-                      <antd.Input value={this.state[item.name]} onChange={_ => {this.setFromValue(_, item.name)}}/>
-                    </antd.Form.Item>
-                ))}
-                <antd.Form.Item>
-                  <antd.Button type="primary" htmlType="submit" onClick={this.submitFrom}>
-                    确定{this.state.operatetype == 'edit' ? '编辑' : '添加'}
-                  </antd.Button>
-                  <antd.Button style={{marginLeft: '30px'}} htmlType="submit" onClick={_ => {this.setState({isShowOperate: false, username: '', tel: '', adress: '', idcard: ''})}}>
-                    取消
-                  </antd.Button>
-                </antd.Form.Item>
+                {this.getformlist('operate')}
               </antd.Form>
           </antd.Modal>
         </div>
